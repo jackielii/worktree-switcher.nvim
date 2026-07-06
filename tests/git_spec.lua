@@ -65,6 +65,13 @@ check("list called back", done == true)
 check("list reports error string", type(got_err) == "string" and got_err ~= "")
 check("list items nil on error", got_items == nil)
 
+-- picker.label formatting (pure)
+local picker = require("worktree-switcher.picker")
+check("label shows branch", picker.label({ path = "/a", branch = "main" }):find("main", 1, true) ~= nil)
+check("label shows path", picker.label({ path = "/a/b", branch = "main" }):find("/a/b", 1, true) ~= nil)
+check("label detached", picker.label({ path = "/a", detached = true }):find("detached", 1, true) ~= nil)
+check("label bare", picker.label({ path = "/a", bare = true }):find("bare", 1, true) ~= nil)
+
 if failures > 0 then
   os.exit(1)
 end
