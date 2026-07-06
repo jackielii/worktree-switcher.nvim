@@ -115,6 +115,37 @@ require("worktree-switcher").setup({
 vim.keymap.set("n", "<leader>gw", require("worktree-switcher").pick, { desc = "Switch worktree" })
 ```
 
+## Local development wiring (lazy.nvim)
+
+The plugin source lives at `~/personal/worktree-switcher.nvim` and is published to
+`github.com/jackielii/worktree-switcher.nvim`. For local testing it is loaded into
+the user's config via a lazy.nvim spec that points at the local checkout with
+`dir=`, so edits in `~/personal/...` take effect on restart without going through
+GitHub.
+
+File: `~/.config/nvim/lua/plugins/worktree-switcher.lua`
+
+```lua
+return {
+  dir = vim.fn.expand("~/personal/worktree-switcher.nvim"),
+  -- url when published: "jackielii/worktree-switcher.nvim",
+  keys = {
+    { "<leader>gw", function() require("worktree-switcher").pick() end, desc = "Switch worktree" },
+  },
+  opts = {
+    on_switch = function(wt)
+      vim.g.project_root = wt.path
+      vim.g.project_path = wt.path
+    end,
+  },
+}
+```
+
+`init.lua`'s `setup(opts)` is what lazy.nvim calls with `opts` (lazy calls
+`require("worktree-switcher").setup(opts)` because the module name is derived from
+the spec; the `main`/module resolution is standard lazy behaviour for a plugin
+whose lua module matches its directory name).
+
 ## Repo layout
 
 ```
