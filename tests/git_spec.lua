@@ -72,6 +72,44 @@ check("label shows path", picker.label({ path = "/a/b", branch = "main" }):find(
 check("label detached", picker.label({ path = "/a", detached = true }):find("detached", 1, true) ~= nil)
 check("label bare", picker.label({ path = "/a", bare = true }):find("bare", 1, true) ~= nil)
 
+-- buffer-follow path mapping (pure)
+local wts = require("worktree-switcher")
+local wt_items = {
+  { path = "/home/u/proj" },
+  { path = "/home/u/proj-feat" },
+  { path = "/home/u/proj/nested-wt" }, -- a worktree nested under another's dir
+}
+
+-- _containing_worktree: longest-prefix match, not a shorter ancestor.
+check(
+  "containing picks exact worktree",
+  wts._containing_worktree(wt_items, "/home/u/proj/lua/init.lua").path == "/home/u/proj"
+)
+check(
+  "containing prefers longest prefix",
+  wts._containing_worktree(wt_items, "/home/u/proj/nested-wt/a.lua").path == "/home/u/proj/nested-wt"
+)
+check("containing nil when outside all", wts._containing_worktree(wt_items, "/etc/hosts") == nil)
+check(
+  "containing does not match sibling by string prefix",
+  wts._containing_worktree(wt_items, "/home/u/proj-feature-x/a.lua") == nil
+)
+
+-- _mapped_path: same relative path in the destination worktree.
+check(
+  "mapped translates relative path across worktrees",
+  wts._mapped_path(wt_items, "/home/u/proj/lua/init.lua", { path = "/home/u/proj-feat" })
+    == "/home/u/proj-feat/lua/init.lua"
+)
+check(
+  "mapped nil when destination is the source worktree",
+  wts._mapped_path(wt_items, "/home/u/proj/lua/init.lua", { path = "/home/u/proj" }) == nil
+)
+check(
+  "mapped nil when file outside all worktrees",
+  wts._mapped_path(wt_items, "/etc/hosts", { path = "/home/u/proj-feat" }) == nil
+)
+
 if failures > 0 then
   os.exit(1)
 end

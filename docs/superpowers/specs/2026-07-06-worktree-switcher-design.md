@@ -59,6 +59,8 @@ Three small modules, each with one purpose and a narrow interface.
 ### `lua/worktree-switcher/init.lua` — public API + config
 - `setup(opts)` — stores config. Options:
   - `on_switch = function(wt) end` — called after a successful `cd`. Optional.
+  - `follow_current_file = true` — after switching, open the current buffer's
+    file at the same relative path in the new worktree (see buffer-follow below).
 - `pick()` — entry point to bind to a key:
   1. Anchor on the current working directory (`vim.fn.getcwd()`); the same value
      is used as `current_path` for marking. (Anchoring on the current file's dir
@@ -67,24 +69,50 @@ Three small modules, each with one purpose and a narrow interface.
   2. `git.list(cwd, cb)`.
      - On error → `vim.notify(err, WARN)` and stop.
      - On empty → `vim.notify("no worktrees", INFO)` and stop (shouldn't normally happen).
-  3. Determine `current_path` = current global cwd (normalised) for marking.
-  4. `picker.open(items, current_path, function(wt) M.switch(wt) end)`.
-- `switch(wt)`:
-  1. `local ok, err = pcall(vim.cmd.cd, wt.path)` (global `:cd`).
-  2. On failure → `vim.notify("cd failed: " .. err, ERROR)`, do NOT call `on_switch`.
-  3. On success → if `config.on_switch` then `pcall(config.on_switch, wt)` (guarded
-     so a broken callback doesn't throw a raw error at the user); notify the switch.
+  3. Capture the current buffer's file (normalised abs path) for buffer-follow.
+  4. `picker.open(items, cwd, on_choice)`. On choice: compute the follow target
+     (if enabled), `switch(wt)`, and — only if `switch` succeeded — `:edit` the
+     target.
+- `switch(wt) -> ok:boolean`:
+  1. `local ok, err = pcall(vim.cmd.cd, fnameescape(wt.path))` (global `:cd`).
+  2. On failure → `vim.notify("cd failed: " .. err, ERROR)`, do NOT call
+     `on_switch`, return `false`.
+  3. On success → notify; if `config.on_switch` then `pcall(config.on_switch, wt)`
+     (guarded so a broken callback doesn't throw a raw error at the user); return
+     `true`.
+
+#### Buffer-follow (`follow_current_file`, default on)
+When switching, if the current buffer's file lives inside the worktree being
+left, open the file at the same relative path in the destination worktree — so
+you stay on the same file across the switch. Two pure helpers (unit-tested):
+- `_containing_worktree(items, path)` — the worktree item whose path is the
+  **longest** prefix of `path` (so a nested worktree wins over its parent), or
+  nil. Uses a `path == root or path starts with root .. "/"` test so
+  `/proj-feature` does not match `/proj`.
+- `_mapped_path(items, curfile, dest)` — the path `curfile` maps to inside
+  `dest`: same path relative to its source worktree. Returns nil when `curfile`
+  is outside every worktree or already inside `dest`. Pure — does NOT check
+  existence.
+
+`pick()` only `:edit`s the mapped path when `vim.uv.fs_stat` confirms it exists;
+otherwise it leaves the current buffer untouched. Re-rooting app UI (e.g. a file
+explorer) to the new worktree is the consumer's job in `on_switch`, not the
+plugin's.
 
 ## Data flow
 
 ```
 pick()
-  -> resolve anchor dir
-  -> git.list(anchor, cb)          [async vim.system]
-  -> picker.open(items, current, on_choice)
-  -> on_choice(wt) == switch(wt)
-  -> vim.cmd.cd(wt.path)           [global]
-  -> config.on_switch(wt)          [user updates vim.g.project_root etc.]
+  -> cwd = getcwd()
+  -> git.list(cwd, cb)             [async vim.system]
+  -> capture current buffer file
+  -> picker.open(items, cwd, on_choice)
+  -> on_choice(wt):
+       target = follow ? _mapped_path(...) if it exists : nil
+       switch(wt):
+         vim.cmd.cd(wt.path)       [global]
+         config.on_switch(wt)      [user updates vim.g.project_root, explorer, ...]
+       if switch ok and target -> :edit target
 ```
 
 ## Error handling
