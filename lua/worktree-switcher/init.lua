@@ -10,16 +10,6 @@ function M.setup(opts)
   M.config = vim.tbl_extend("force", M.config, opts or {})
 end
 
---- Directory to anchor `git worktree list` on: the current file's dir, else cwd.
---- @return string
-local function anchor_dir()
-  local name = vim.api.nvim_buf_get_name(0)
-  if name ~= "" and vim.uv.fs_stat(name) then
-    return vim.fs.dirname(name)
-  end
-  return vim.fn.getcwd()
-end
-
 --- Change the global cwd to the worktree and fire on_switch.
 --- @param wt table
 function M.switch(wt)
@@ -41,7 +31,8 @@ end
 
 --- List worktrees and open the picker; selection switches the workspace.
 function M.pick()
-  git.list(anchor_dir(), function(err, items)
+  local cwd = vim.fn.getcwd()
+  git.list(cwd, function(err, items)
     if err then
       vim.notify("worktree-switcher: " .. err, vim.log.levels.WARN)
       return
@@ -50,8 +41,7 @@ function M.pick()
       vim.notify("worktree-switcher: no worktrees found", vim.log.levels.INFO)
       return
     end
-    local current = vim.fn.getcwd()
-    picker.open(items, current, function(wt)
+    picker.open(items, cwd, function(wt)
       M.switch(wt)
     end)
   end)

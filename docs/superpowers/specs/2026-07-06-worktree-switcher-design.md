@@ -13,7 +13,7 @@ available and falls back to `vim.ui.select` so it works in a bare Neovim.
 ## Scope
 
 In scope:
-- List worktrees of the repo anchored at the current file's directory (fallback cwd).
+- List worktrees of the repo anchored at the current working directory (`getcwd()`).
 - Pick one via Snacks picker, or `vim.ui.select` fallback.
 - On selection: global `:cd` to the worktree, then invoke `on_switch(wt)`.
 
@@ -60,9 +60,11 @@ Three small modules, each with one purpose and a narrow interface.
 - `setup(opts)` — stores config. Options:
   - `on_switch = function(wt) end` — called after a successful `cd`. Optional.
 - `pick()` — entry point to bind to a key:
-  1. Resolve the anchor dir: directory of the current buffer's file if it names a
-     real file on disk, else `vim.fn.getcwd()`.
-  2. `git.list(anchor, cb)`.
+  1. Anchor on the current working directory (`vim.fn.getcwd()`); the same value
+     is used as `current_path` for marking. (Anchoring on the current file's dir
+     was tried and dropped — it ran git from wherever the buffer's file lived,
+     which failed when that was outside the repo.)
+  2. `git.list(cwd, cb)`.
      - On error → `vim.notify(err, WARN)` and stop.
      - On empty → `vim.notify("no worktrees", INFO)` and stop (shouldn't normally happen).
   3. Determine `current_path` = current global cwd (normalised) for marking.
