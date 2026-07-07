@@ -25,6 +25,9 @@ local function open_snacks(items, current_path, on_choice)
       text = M.label(wt),
       wt = wt,
       current = wt.path == current_path,
+      -- Snacks' default file previewer lists a directory's contents, so pointing
+      -- `file` at the worktree root previews that worktree.
+      file = wt.path,
     }
   end
   Snacks.picker({
