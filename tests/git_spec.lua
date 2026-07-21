@@ -72,6 +72,21 @@ check("label shows path", picker.label({ path = "/a/b", branch = "main" }):find(
 check("label detached", picker.label({ path = "/a", detached = true }):find("detached", 1, true) ~= nil)
 check("label bare", picker.label({ path = "/a", bare = true }):find("bare", 1, true) ~= nil)
 
+-- picker.finder_item: Snacks item wired for the git_log previewer (pure).
+-- Preview must show the worktree's git history, not a directory file listing,
+-- so `cwd`/`commit` are set and `file` (which triggers dir listing) is not.
+local fi = picker.finder_item({ path = "/a", branch = "main", head = "abc123" }, 2, "/other")
+check("finder_item carries idx", fi.idx == 2)
+check("finder_item scopes git log to worktree via cwd", fi.cwd == "/a")
+check("finder_item anchors git log at the worktree head", fi.commit == "abc123")
+check("finder_item leaves file unset (no dir listing)", fi.file == nil)
+check("finder_item current flag false when not current", fi.current == false)
+check("finder_item keeps the wt reference", fi.wt.path == "/a")
+local fic = picker.finder_item({ path = "/a", branch = "main", head = "abc123" }, 1, "/a")
+check("finder_item current flag true when current", fic.current == true)
+local fib = picker.finder_item({ path = "/bare", bare = true }, 3, "/x")
+check("finder_item bare has nil commit (falls back to default branch)", fib.commit == nil)
+
 -- buffer-follow path mapping (pure)
 local wts = require("worktree-switcher")
 local wt_items = {

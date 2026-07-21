@@ -17,22 +17,36 @@ function M.label(item)
   return string.format("%-30s %s", ref, item.path)
 end
 
+--- Build the Snacks finder item for a worktree. Pure.
+--- Wired for Snacks' `git_log` previewer (the one its `git_branches` source
+--- uses): `cwd` scopes `git log` to this worktree and `commit` anchors it at the
+--- checked-out tip, so the preview shows the worktree's branch history rather
+--- than a directory file listing. Bare worktrees have no head, so `commit` is
+--- nil and git falls back to the repo's default branch.
+--- @param wt table
+--- @param idx integer
+--- @param current_path string
+--- @return table
+function M.finder_item(wt, idx, current_path)
+  return {
+    idx = idx,
+    text = M.label(wt),
+    wt = wt,
+    current = wt.path == current_path,
+    cwd = wt.path,
+    commit = wt.head,
+  }
+end
+
 local function open_snacks(items, current_path, on_choice)
   local finder_items = {}
   for i, wt in ipairs(items) do
-    finder_items[#finder_items + 1] = {
-      idx = i,
-      text = M.label(wt),
-      wt = wt,
-      current = wt.path == current_path,
-      -- Snacks' default file previewer lists a directory's contents, so pointing
-      -- `file` at the worktree root previews that worktree.
-      file = wt.path,
-    }
+    finder_items[#finder_items + 1] = M.finder_item(wt, i, current_path)
   end
   Snacks.picker({
     title = "Git Worktrees",
     items = finder_items,
+    preview = "git_log",
     format = function(pick_item)
       local prefix = pick_item.current and "* " or "  "
       return { { prefix, "SnacksPickerSpecial" }, { pick_item.text, "SnacksPickerFile" } }
